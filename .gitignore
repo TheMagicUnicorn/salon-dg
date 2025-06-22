@@ -1,0 +1,31 @@
+# Fichiers Python
+*.pyc
+__pycache__/
+*.pyo
+
+# Environnement virtuel
+.venv/
+env/
+venv/
+
+# Fichiers IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Base de données locale
+db.sqlite3
+
+# Django
+*.log
+staticfiles/
+media/
+
+# Secrets
+.env
+*.secret
+
+# OS
+.DS_Store
+Thumbs.db
