@@ -1,0 +1,21 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Salon DG</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/lumen/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+<header class="d-flex justify-content-start align-items-center p-2">
+    <img src="{% static 'salon_dg.png' %}" alt="Logo Salon DG" style="height: 100px;" class="ms-3">
+</header>
+
+<div class="container mt-5">
+    {% block content %}{% endblock %}
+</div>
+
+</body>
+</html>

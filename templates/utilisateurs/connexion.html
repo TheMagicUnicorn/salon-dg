@@ -1,0 +1,40 @@
+{% extends "base_public.html" %}
+
+{% block title %}Connexion{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <h2 class="mb-4">Connexion</h2>
+            {% load widget_tweaks %}
+            {% if form.errors %}
+                <div class="alert alert-danger">
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="id_username" class="form-label">Email</label>
+                    {{ form.username|add_class:"form-control" }}
+                </div>
+                <div class="mb-3">
+                    <label for="id_password" class="form-label">Mot de passe</label>
+                    {{ form.password|add_class:"form-control" }}
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Se connecter</button>
+            </form>
+
+            <p class="mt-3 text-center">
+                Pas encore inscrit ? <a href="{% url 'inscription' %}">Créer un compte</a>
+            </p>
+        </div>
+    </div>
+{% endblock %}

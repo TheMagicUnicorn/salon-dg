@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Réservation{% endblock %}
+
+{% block content %}
+    <h2>Réserver une prestation</h2>
+    <div id="message-container" class="mt-3"></div>
+
+    <!-- Choix des prestations -->
+    <div class="mb-4">
+        <h4>Choisissez une prestation :</h4>
+        <div id="prestations" class="btn-group" role="group">
+            {% for prestation in prestations %}
+                <button type="button" class="btn btn-primary me-2"
+                        onclick="selectionnerPrestation(this, {{ prestation.id }})"
+                        data-id="{{ prestation.id }}"
+                        data-duree="{{ prestation.duree_minutes }}">
+                    {{ prestation.nom }} - {{ prestation.prix }}€ - {{ prestation.duree_minutes }} min
+                </button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Choix des créneaux -->
+    <div class="mb-4" id="creneaux-section" style="display:none;">
+        <h4>Choisissez un créneau :</h4>
+        <div id="creneaux" class="btn-group mb-2" role="group"></div>
+        <button class="btn btn-link" onclick="afficherCalendrier()">Ces créneaux ne me conviennent pas, choisir ma date</button>
+    </div>
+
+    <!-- Choix manuel date/heure -->
+    <div class="mb-4" id="calendrier-section" style="display:none;">
+        <h4>Choisissez une date et une heure :</h4>
+        <input type="date" id="date-personnalisee" class="form-control mb-2">
+        <select id="heure-personnalisee" class="form-control"></select>
+    </div>
+
+    <!-- Bouton Réserver -->
+    <button class="btn btn-success mt-3" onclick="envoyerReservation()">Réserver</button>
+
+    <script>
+        let prestationId = null;
+        let dureePrestation = null;
+        let creneauSelectionne = null;
+
+        function selectionnerPrestation(button, id) {
+            prestationId = id;
+            dureePrestation = parseInt(button.dataset.duree);
+
+            document.querySelectorAll("#prestations button").forEach(btn => {
+                btn.classList.remove("btn-success", "btn-secondary");
+                btn.classList.add("btn-secondary");
+            });
+            button.classList.remove("btn-secondary");
+            button.classList.add("btn-success");
+
+            fetch(`/reservation/creneaux/?prestation_id=${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ Données reçues pour les créneaux :", data);
+                    let html = "";
+                    data.forEach(creneau => {
+                        html += `<button class="btn btn-primary me-2" onclick="selectionnerCreneau(this, '${creneau.date}', '${creneau.heure}')">${creneau.date} à ${creneau.heure}</button>`;
+                    });
+                    document.getElementById("creneaux").innerHTML = html;
+                    document.getElementById("creneaux-section").style.display = "block";
+                    console.log("📦 Section créneaux affichée");
+                    document.getElementById("calendrier-section").style.display = "none";
+                    creneauSelectionne = null;
+                });
+
+            fetch('/reservation/api/jours-disponibles/')
+                .then(r => r.json())
+                .then(data => {
+                    const inputDate = document.getElementById('date-personnalisee');
+                    const today = new Date();
+                    inputDate.min = today.toISOString().split('T')[0];
+                    inputDate.onchange = chargerHeuresDisponibles;
+
+                    inputDate.setAttribute('data-disponibles', JSON.stringify(data.dates_disponibles));
+                });
+        }
+
+        function selectionnerCreneau(button, date, heure) {
+            creneauSelectionne = { date, heure };
+            document.querySelectorAll("#creneaux button").forEach(btn => {
+                btn.classList.remove("btn-success");
+                btn.classList.add("btn-secondary");
+            });
+            button.classList.remove("btn-secondary");
+            button.classList.add("btn-success");
+        }
+
+        function afficherCalendrier() {
+            document.getElementById("calendrier-section").style.display = "block";
+            document.getElementById("heure-personnalisee").innerHTML = "";
+            creneauSelectionne = null;
+        }
+
+        function chargerHeuresDisponibles() {
+            const date = this.value;
+            const heuresSelect = document.getElementById("heure-personnalisee");
+            heuresSelect.innerHTML = "<option>Chargement...</option>";
+
+            fetch(`/reservation/api/creneaux/jour/?date=${date}&prestation_id=${prestationId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.jour_ferme) {
+                        heuresSelect.innerHTML = "<option>Fermé ce jour</option>";
+                        return;
+                    }
+
+                    if (data.creneaux.length === 0) {
+                        heuresSelect.innerHTML = "<option>Aucun créneau disponible</option>";
+                        return;
+                    }
+
+                    let options = "<option value=''>-- Choisissez une heure --</option>";
+                    data.creneaux.forEach(heure => {
+                        options += `<option value="${heure}">${heure}</option>`;
+                    });
+                    heuresSelect.innerHTML = options;
+                });
+        }
+
+        function envoyerReservation() {
+            if (!prestationId) {
+                alert("Veuillez sélectionner une prestation.");
+                return;
+            }
+
+            let date = null;
+            let heure = null;
+
+            if (creneauSelectionne) {
+                date = creneauSelectionne.date;
+                heure = creneauSelectionne.heure;
+            } else {
+                const inputDate = document.getElementById("date-personnalisee");
+                const selectHeure = document.getElementById("heure-personnalisee");
+
+                date = inputDate ? inputDate.value : null;
+                heure = selectHeure ? selectHeure.value : null;
+            }
+
+            if (!date || !heure) {
+                alert("Veuillez choisir une date et une heure.");
+                return;
+            }
+
+            // Stockage temporaire
+            window.confirmationData = { prestationId, date, heure };
+
+            const nomPrestation = document.querySelector(`#prestations button[data-id='${prestationId}']`).textContent.trim();
+            const texte = `Vous avez choisi :<br><strong>${nomPrestation}</strong><br>le <strong>${date}</strong> à <strong>${heure}</strong>.<br>Confirmez-vous votre réservation ?`;
+            document.getElementById("confirmationModalBody").innerHTML = texte;
+
+            const modal = new bootstrap.Modal(document.getElementById("confirmationModal"));
+            modal.show();
+        }
+        function confirmerEnvoi() {
+    const { prestationId, date, heure } = window.confirmationData;
+
+    fetch("{% url 'enregistrer_reservation' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}"
+        },
+        body: JSON.stringify({
+            prestation_id: prestationId,
+            date: date,
+            heure: heure
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const modal = bootstrap.Modal.getInstance(document.getElementById("confirmationModal"));
+        modal.hide();
+
+        // Affichage toast
+        const toastBody = document.getElementById("toastConfirmationBody");
+        toastBody.innerHTML = `<strong>${data.message}</strong>`;
+
+        const toastElement = document.getElementById("toastConfirmation");
+        const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+        toast.show();
+
+        // Optionnel : redirection après 5s
+        setTimeout(() => {
+            window.location.href = "{% url 'reservation' %}";
+        }, 5000);
+    })
+    .catch(error => {
+        alert("Une erreur est survenue : " + error);
+    });
+}
+
+    </script>
+    <!-- Modal de confirmation -->
+    <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmationModalLabel">Confirmation de votre réservation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body" id="confirmationModalBody">
+                    <!-- Le texte sera inséré dynamiquement ici -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Non, modifier</button>
+                    <button type="button" class="btn btn-success" onclick="confirmerEnvoi()">Oui, je confirme</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Toast de confirmation -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1100">
+  <div id="toastConfirmation" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="toastConfirmationBody">
+        <!-- Message dynamique -->
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fermer"></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
